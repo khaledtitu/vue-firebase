@@ -1,5 +1,6 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
+import * as firebase from 'firebase'
 
 const fb = require('../config/firebaseConfig.js')
 
@@ -14,7 +15,6 @@ fb.auth.onAuthStateChanged(user => {
         fb.usersCollection.doc(user.uid).onSnapshot(doc => {
             store.commit('setUserProfile', doc.data())
         })
-
         // realtime updates from our posts collection
         fb.postsCollection.orderBy('createdOn', 'desc').onSnapshot(querySnapshot => {
             // check if created by currentUser
@@ -61,6 +61,53 @@ export const store = new Vuex.Store({
             commit('setPosts', null)
             commit('setHiddenPosts', null)
         },
+        createPost ({commit, getters, state}, payload) {
+            const postData = {
+                createdOn: payload.createdOn,
+                content: payload.content,
+                userId: payload.userId,
+                image: '',
+                userName: payload.userName,
+                comments: payload.comments,
+                likes: payload.likes
+            }
+
+            let imageUrl
+            let key
+            fb.postsCollection.add(postData)
+            .then((data) => {
+             console.log(data);
+              key = data.id
+              console.log("key "+ key)
+              return key
+            })
+            .then(key => {
+             console.log(payload)
+              const filename = payload.image.name
+              const ext = filename.slice(filename.lastIndexOf('.'))
+              return firebase.storage().ref('posts/' + key  + ext).put(payload.image)
+            })
+            .then(uploadTaskSnapshot => {
+                 return uploadTaskSnapshot.ref.getDownloadURL()
+              })
+            .then(imageUrl => {
+              console.log(imageUrl);
+               return fb.postsCollection.doc(key).update({image: imageUrl})
+            })
+            .then((data) => {
+              console.log(data)
+              const key = data.id
+              commit('createPost', {
+                ...postData,
+                imageUrl: imageUrl,
+                id: key
+              })
+            })
+            .catch((error) => {
+              console.log(error)
+            })
+          // Reach out to firebase and store it
+        },
         fetchUserProfile({ commit, state }) {
             fb.usersCollection.doc(state.currentUser.uid).get().then(res => {
                 commit('setUserProfile', res.data())
@@ -97,6 +144,9 @@ export const store = new Vuex.Store({
     mutations: {
         setCurrentUser(state, val) {
             state.currentUser = val
+        },
+        createPost (state, payload) {
+          state.posts.push(payload)
         },
         setUserProfile(state, val) {
             state.userProfile = val

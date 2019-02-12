@@ -9,6 +9,14 @@
                         <p>create a post</p>
                         <form @submit.prevent>
                             <textarea v-model.trim="post.content"></textarea>
+                             <button @click="onPickFile" name="image"> Upload Image</button>
+                              <input
+                                type="file"
+                                style="display: none"
+                                ref="fileInput"
+                                accept="image/*"
+                                @change="onFilePicked">
+                           
                             <button @click="createPost" :disabled="post.content == ''" class="button">post</button>
                         </form>
                     </div>
@@ -98,6 +106,8 @@
                     content: '',
                     postComments: 0
                 },
+                imageUrl: '',
+                image:null,
                 showCommentModal: false,
                 showPostModal: false,
                 fullPost: {},
@@ -109,18 +119,57 @@
         },
         methods: {
             createPost() {
-                fb.postsCollection.add({
+               this.$store.dispatch('createPost', {
                     createdOn: new Date(),
                     content: this.post.content,
                     userId: this.currentUser.uid,
+                    image: this.image,
                     userName: this.userProfile.name,
                     comments: 0,
                     likes: 0
-                }).then(ref => {
-                    this.post.content = ''
-                }).catch(err => {
-                    console.log(err)
+              })
+              .then(response => { 
+                 // this.reset()   
+                  console.log(response)
+                  this.post.content = ''
+
                 })
+                .catch(error => {
+                })
+
+
+                // fb.postsCollection.add({
+                //     createdOn: new Date(),
+                //     content: this.post.content,
+                //     userId: this.currentUser.uid,
+                //     image: this.image,
+                //     userName: this.userProfile.name,
+                //     comments: 0,
+                //     likes: 0
+                // }).then(ref => {
+                //     console.log(ref.id);
+                //     this.post.content = ''
+                // }).catch(err => {
+                //     console.log(err)
+                // })
+            },
+            onPickFile () {
+                this.$refs.fileInput.click()
+            },
+            onFilePicked (event) {
+                const files = event.target.files
+                let filename = files[0].name
+                console.log(filename);
+                if (filename.lastIndexOf('.') <= 0) {
+                  return alert('Please add a valid file!')
+                }
+                const fileReader = new FileReader()
+                fileReader.addEventListener('load', () => {
+                  this.imageUrl = fileReader.result
+                })
+                fileReader.readAsDataURL(files[0])
+                this.image = files[0]
+                console.log(this.image)
             },
             showNewPosts() {
                 let updatedPostsArray = this.hiddenPosts.concat(this.posts)
